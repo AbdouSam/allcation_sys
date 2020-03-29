@@ -1,23 +1,14 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
+#include "sram_alloc.h"
+#include "debug.h"
+#include "config.h"
 
 #define TEST
 
-#define ALLOC_OP_READ  0
-#define ALLOC_OP_WRITE 1
-
 #define BLOCK_DATA_STRUCT_LEN  4 /* Length of block in byte */
 #define ALLOC_DATA_STRUCT_LEN  4 /* Length of alloc row in byte */
-
-#define BLOCK_SIZE    512 /* BLOCK size in bytes */
-#define SRAM_SIZE     (64 * 1024) /* Total size of sram in bytes */
-#define BLOCK_NUMBER  (SRAM_SIZE / BLOCK_SIZE) /* TOTAL BLOCKS nbr in sytsem */
-
-#define BLOCK_TABLE_ROW_NBR (BLOCK_SIZE / BLOCK_DATA_STRUCT_LEN )
-#define ALLOC_TABLE_ROW_NBR (BLOCK_SIZE / ALLOC_DATA_STRUCT_LEN)
+#define BLOCK_NUMBER          (SRAM_SIZE / BLOCK_SIZE) /* TOTAL BLOCKS nbr in sytsem */
+#define BLOCK_TABLE_ROW_NBR   (BLOCK_SIZE / BLOCK_DATA_STRUCT_LEN )
+#define ALLOC_TABLE_ROW_NBR   (BLOCK_SIZE / ALLOC_DATA_STRUCT_LEN)
 
 /* Size in byte / 4 to get 32bit addresses
  * with 512/ 4 = 128 Address to hold data about 128 allocation spaces. */
@@ -27,150 +18,112 @@
 #define ALLOC_TABLE_BLKNBR    1     
 #define DATA_BLKNBR           (BLOCK_NUMBER - SUPER_BLKNBR - \
                                BLOCK_TABLE_BLKNBR - ALLOC_TABLE_BLKNBR)
+
 #define SUPER_STR_INDX        0
 #define BLOCK_TABLE_STR_INDX  (SUPER_STR_INDX + SUPER_BLKNBR)
 #define ALLOC_TABLE_STR_INDX  (BLOCK_TABLE_STR_INDX +  BLOCK_TABLE_BLKNBR)
 #define DATA_STR_INDX         (ALLOC_TABLE_STR_INDX + ALLOC_TABLE_BLKNBR)
 
-#define ALLOC_MAGIC_NBR  0xDE0FA751
-#define ALLOC_START_ADDR 0x00000000
+#define ALLOC_MAGIC_NBR          0xDE0FA751
 #define ALLOC_SUPER_BLCOK_ADDR  (ALLOC_START_ADDR + 0 * BLOCK_SIZE) /* Block.0 */
 #define ALLOC_BLOCK_TABLE_ADDR  (ALLOC_START_ADDR + 1 * BLOCK_SIZE) /* Block.1 */
 #define ALLOC_FILE_TABLE_ADDR   (ALLOC_START_ADDR + 2 * BLOCK_SIZE) /* Block.2 */
 
-#define dbg_msg(format, ...)     printf(format, ##__VA_ARGS__)
+/**
+ * TODO :
+ * - Limitation is the blocks table is limited to 128 block addressing only.
+ *   We can make that more flexiblewe can increase the block size more thn 512
+ *   but this will create a problem, one entry in block table should be 4 byte
+ *   the index is 1 byte (256 max address)
+ */
 
-/* Errors. */
-enum
-{
-  ALLOC_OK                  =  0,
-  ERR_ALLOC_FAILED          = -1,
-  ERR_ALLOC_TABLE_FULL      = -2,
-  ERR_BLOCK_TABLE_FULL      = -3,
-  ERR_ALLOC_INVALID_BYTENBR = -4,
-  ERR_ALLOC_BLOCKS_FULL     = -5,
-  ERR_INVALID_ALLOC_HANDLE  = -6,
-  ERR_ALLOC_SYS             = -7,
-};
-
-struct sram_t
-{
-  uint8_t data[SRAM_SIZE];
-  uint32_t addr[SRAM_SIZE];
-  
-}sram;
-
+/* a block entry, holds data about a block */
 typedef struct 
 {
   uint8_t index; /* 0-255 indexing */
   uint8_t busy;  /* 1: busy, 0: free*/
-  int16_t  next; /* Next index reserved (-1 of non) Warning (-127, 128) range. */
+  int16_t next;  /* Next index reserved (-1 of non) Warning (-127, 128) range. */
 }block_t;
 /* /!\ It is essential for this struct to not exceed 32bit */
  
-
-
-/* Blocks table */
-/* This table holds data about each block and relation with next block */
-static block_t gblock_table[BLOCK_TABLE_ROW_NBR];
-
+ /* allocation entry, hold data about an allocation */
 typedef struct 
 {
-  uint8_t index;    /* Id of the allocation space */
+  uint8_t index; /* Id of the allocation space */
   uint8_t start; /* Starting index */
   uint8_t len;   /* nbr of blocks reserved */
-  uint8_t used; /* Is this entry used or not. */
+  uint8_t used;  /* Is this entry used or not. */
 }alloc_t;
 /* /!\ It is essential for this struct to not exceed 32bit */
 
-/* Allocation table */
-/* This table holds data of allocated spaces,*/
-static alloc_t galloc_table[ALLOC_TABLE_ROW_NBR];
 
 /* Super block hold data about the allocation system. */
 typedef struct
 {
-  uint32_t  magicnbr;    /* Special nbre to check whether a system is mounted. */
-  uint32_t  bsize;       /* Size of one block in bytes */
-  uint32_t  blocknbr;   /* total block nbr in sys */
-  uint32_t  usedblocknbr;   /* total used data blocks nbr in sys */
-  uint32_t  freeblocknbr;   /* total free data blocks nbr in sys */
+  uint32_t  magicnbr;     /* Special nbre to check whether a system is mounted. */
+  uint32_t  bsize;        /* Size of one block in bytes */
+  uint32_t  blocknbr;     /* total block nbr in sys */
+  uint32_t  usedblocknbr; /* total used data blocks nbr in sys */
+  uint32_t  freeblocknbr; /* total free data blocks nbr in sys */
   uint32_t  spblocknbr;   /* nbr blocks reserve for super block */
-  uint32_t  btblocknbr;  /* nbr block reserved for block table */
-  uint32_t  alblocknbr;  /* nbr block reserved for allocation table*/
-  uint32_t  datablocknbr;  /* nbr block reserved for data */
-  uint32_t  spstrindex; /* super block start index. */
-  uint32_t  btstrindex; /* Block table start index. */
-  uint32_t  alstrindex; /* alloc table start index. */
+  uint32_t  btblocknbr;   /* nbr block reserved for block table */
+  uint32_t  alblocknbr;   /* nbr block reserved for allocation table*/
+  uint32_t  datablocknbr; /* nbr block reserved for data */
+  uint32_t  spstrindex;   /* super block start index. */
+  uint32_t  btstrindex;   /* Block table start index. */
+  uint32_t  alstrindex;   /* alloc table start index. */
   uint32_t  datastrindex; /* data start index. */
-  uint32_t  blentrynbr; /*  nbr of rows in Block table. */
-  uint32_t  alentrynbr; /*  nbr of rows in Alloc table. */
-  uint32_t  allocnbr; /* nbr of allocations made */
+  uint32_t  blentrynbr;   /* nbr of rows in Block table. */
+  uint32_t  alentrynbr;   /* nbr of rows in Alloc table. */
+  uint32_t  allocnbr;     /* nbr of allocations made */
 }superblock_t;
 /* /!\ It is essential for this struct to not exceed BLOCK_SIZE (512byte) */
 
-
-/* handle to identify an allocation. */
-typedef struct
-{
-  uint8_t id;   /* ID of file */
-  uint32_t size; /* length of allocation in bytes */
-}sram_alloc_t;  
-
-
+static block_t gblock_table[BLOCK_TABLE_ROW_NBR];
+static alloc_t galloc_table[ALLOC_TABLE_ROW_NBR];
 static superblock_t gsuper_block;
 
-
-static bool isaddr_valid(uint32_t addr)
-{
-  return !(addr%4 > 0);
-}
-
-/* Simulate Writing in the sram */
-static int writesram(uint32_t addr, uint32_t data)
-{
-
-  if (isaddr_valid(addr))
-  {
-    sram.data[addr + 0] = (data >> 24) & 0xFF;
-    sram.data[addr + 1] = (data >> 16) & 0xFF;
-    sram.data[addr + 2] = (data >> 8) & 0xFF;
-    sram.data[addr + 3] = (data) & 0xFF;
-    return 0;
-  }
-  else
-  {
-    dbg_msg("Invalid Addr.\n");
-    return 1;
-  }
-}
-
-/* Simulate Reading from the sram */
-static int readsram(uint32_t addr, uint32_t *data)
-{
-  uint32_t ldata;
-
-  if (isaddr_valid(addr))
-  {
-    ldata = ((sram.data[addr + 0] << 24) & 0xFFFFFFFF) +
-            ((sram.data[addr + 1] << 16) & 0xFFFFFFFF) +
-            ((sram.data[addr + 2] << 8) & 0xFFFFFFFF) +
-            ((sram.data[addr + 3]) & 0xFFFFFFFF);
-
-    *data = ldata;
-    return 0;
-  }
-  else
-  {
-    dbg_msg("Invalid Addr.\n");
-    return 1;
-  }
-}
-
-static int sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write)
+#ifdef TEST
+int sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write)
 {
   int i;
-  #ifndef TEST 
+  uint32_t *data;
+  uint32_t addr;
+  uint32_t bytenbr;
+
+  bytenbr = blocknbr * BLOCK_SIZE;
+
+  if (write)
+  {
+    addr = ALLOC_START_ADDR + blockstr * BLOCK_SIZE;
+
+    data = (uint32_t *)buffer;
+
+    for (i = 0; i < (bytenbr / 4); i++)
+    {
+      sram_drvwrite(addr, *data++);
+      addr = addr + 4;
+    }
+
+  }
+  else
+  {
+    addr = ALLOC_START_ADDR + blockstr * BLOCK_SIZE;
+    data = (uint32_t *)buffer;
+
+    for (i = 0; i < (bytenbr / 4); i++)
+    {
+      sram_drvread(addr, data++);
+      addr = addr + 4;
+    }
+  }
+}
+#endif
+
+#ifndef TEST
+int sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write)
+{
+  int i;
   uint32_t *source;
   uint32_t *destination;
   uint32_t bytenbr;
@@ -193,42 +146,8 @@ static int sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, boo
       *destination++ = *source++;
 
     }
-  #else
-  uint32_t *data;
-  uint32_t addr;
-  uint32_t bytenbr;
-
-  bytenbr = blocknbr * BLOCK_SIZE;
-
-  if (write)
-  {
-    addr = ALLOC_START_ADDR + blockstr * BLOCK_SIZE;
-
-    data = (uint32_t *)buffer;
-
-    for (i = 0; i < (bytenbr / 4); i++)
-    {
-      writesram(addr, *data++);
-      addr = addr + 4;
-    }
-
-  }
-  else
-  {
-    addr = ALLOC_START_ADDR + blockstr * BLOCK_SIZE;
-    data = (uint32_t *)buffer;
-
-    for (i = 0; i < (bytenbr / 4); i++)
-    {
-      readsram(addr, data++);
-      addr = addr + 4;
-    }
-  }
-
-  
-
-  #endif
 }
+#endif
 
 /* Limitation of this function, super table and alloc tables should be of size 1. */
 static void init_tables(void)
@@ -279,12 +198,9 @@ static void init_tables(void)
   sram_onblock_op(alloctable, superblock->alstrindex, 1, ALLOC_OP_WRITE);
 }
 
-static int mount_allocsystem(void)
+int mount_allocsystem(void)
 {
   /* Initialize block table. */
-  /* Check the fist block for block table if not initialize new one. */
-
-  /* Points this to the SRAM Address */
   superblock_t *superblock = &gsuper_block;
  
   /* SRAM location should never be accessed directly always use functions. */
@@ -536,140 +452,59 @@ int sram_block_free(sram_alloc_t *handle)
     return ERR_INVALID_ALLOC_HANDLE;
   }
 }
+static uint8_t alloc_buffer[BLOCK_SIZE];
 
-void init_sram(void)
+void sram_alloc_write(sram_alloc_t *handle, uint32_t pos, void *buffer, uint32_t len)
 {
-  for (int i = 0; i < SRAM_SIZE; ++i)
+  /* Get information from handle */
+  uint32_t id = handle->id;
+  uint32_t size = handle->size;
+
+  /* check whether position is in the range of writing. */
+  if ((len + pos) > size)
   {
-    sram.addr[i] = i;
-    sram.data[i] = 0xFF; 
+    /* length of data exceed allocated space */
+    return -1;
   }
 
-  dbg_msg("Sram starting from index zero\n");
-}
+  /* Determine how many blocks are to be written */
+  uint32_t blkoffset = (pos / BLOCK_SIZE);
+  uint32_t posoffset = (pos % BLOCK_SIZE)
 
-static void dump_sram(int blocknbr)
-{
-  int i;
+  uint32_t nbrblocks = ((posoffset + len) / BLOCK_SIZE) + (((posoffset + len) % BLOCK_SIZE) > 0);
 
-  dbg_msg("SRAM memory dump : \n");
-  uint32_t addr = ALLOC_START_ADDR + blocknbr * BLOCK_SIZE;
-
-  for (i = addr; i < (addr + BLOCK_SIZE); i+=4)
+  /* Read sram before writing. loop through, */
+  for (i = nbrblocks; i < 0; i--)
   {
-    dbg_msg(" %08X | %02X%02X%02X%02X\n",
-             sram.addr[i],
-             sram.data[i],
-             sram.data[i + 1],
-             sram.data[i + 2],
-             sram.data[i + 3]
-             );
-  }
-}
-void sram_unit_test(void)
-{
-  uint32_t addr =  0;
-  uint32_t data = 0x01234567;
-  uint32_t rdata = 0x00000000;
+    /* Read first block, whichis the startblock of the allocation plus the block offset */
+    /* Get it into the buffer locally */
 
-  writesram(addr, data);
+    /* Make only the necessary changes locally, meaning : memset from posoffset */
+    /* Write the block back*/
 
-  dump_sram(1);
-
-  readsram(addr, &rdata);
-  dbg_msg("Read data : %08X\n", rdata);
-
-  data = 0xDE07C0DE;
-  rdata = 0x00000000;
-  writesram(addr + 4, data);
-  dump_sram(2);
-
-  readsram(addr + 4, &rdata);
-  dbg_msg("Read data : %08X\n", rdata);
-}
-
-void sram_block_op_test(void)
-{
-  uint8_t blockbuffer[512];
-
-  uint8_t buffer[256];
-  uint8_t rbuffer[256];
-
-  for (int i = 0; i < 256; i++)
-  {
-    buffer[i] = i;
-  }
-
-  dbg_msg("Write data : \n");
-  for (int i = 0; i < 128; ++i)
-  {
-    dbg_msg("%02X ", buffer[i]);
-    /* code */
-  }
-
-  memcpy(blockbuffer, buffer, 256);
-  sram_onblock_op(blockbuffer, 0, 1, ALLOC_OP_WRITE);
-  
-  dump_sram(128);
-
-  sram_onblock_op(blockbuffer, 0, 1, ALLOC_OP_READ);
-  memcpy(rbuffer, blockbuffer, 256);
-
-  dbg_msg("read data : \n");
-  for (int i = 0; i < 128; ++i)
-  {
-    dbg_msg("%02X ", rbuffer[i]);
-    /* code */
+    /* Read the next block,  */
+    /* Check how many bytes are left if > block_size write fully if bytes < block_size memset only the changes bytes. */
+    /* Write to sram */
   }
 }
 
-int main(int argc, char const *argv[])
+int sram_getentrynbr(void)
 {
-  sram_alloc_t shandle;
-  sram_alloc_t shandle2;
-  sram_alloc_t shandle3;
-  int ret;
   superblock_t *superblock = &gsuper_block;
-  block_t      *blocktable = gblock_table ;
-  alloc_t      *alloctable = galloc_table ;
 
-  init_sram();
-  mount_allocsystem();
+  return superblock->allocnbr;
+}
 
-  if (sram_block_malloc(&shandle, 1024) == 0)
-  {
-    dbg_msg("Allocation sucess id %d, size %d\n", shandle.id, shandle.size);
-  }
+int sram_getfreeblocks(void)
+{
+  superblock_t *superblock = &gsuper_block;
 
-  dbg_msg("Super blocknbr %d\n", superblock->allocnbr);
+  return superblock->freeblocknbr;
+}
 
+int sram_getusedblocks(void)
+{
+  superblock_t *superblock = &gsuper_block;
 
-  if (sram_block_malloc(&shandle2, 512) == 0)
-  {
-    dbg_msg("Allocation sucess id %d, size %d\n", shandle2.id, shandle2.size);
-  }
-  
-  read_iblocks_sram(superblock, blocktable, alloctable);
-  //dump_sram(1);
-
-  dbg_msg("Super freeblocknbr %d\n", superblock->freeblocknbr);
-
-  if(sram_block_free(&shandle) == 0)
-  {
-    dbg_msg("Block freed\n");
-  }
-  read_iblocks_sram(superblock, blocktable, alloctable);
-
-  dbg_msg("Super freeblocknbr %d\n", superblock->freeblocknbr);
-  dbg_msg("Super allocnbr %d\n", superblock->allocnbr);
-
-  if (sram_block_malloc(&shandle3, 64*512) == 0)
-  {
-    dbg_msg("Allocation sucess id %d, size %d\n", shandle3.id, shandle3.size);
-  }
-  
-  dbg_msg("Super freeblocknbr %d\n", superblock->freeblocknbr);
-
-  //dump_sram(1);
-  return 0;
+  return superblock->usedblocknbr;
 }
