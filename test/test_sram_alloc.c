@@ -103,34 +103,6 @@ void test_sram_alloc_MallocFree(void)
 #endif
 
 #if 0
-void test_sram_alloc_BlockOP(void)
-{
-  uint8_t blockbuffer[512];
-
-  uint8_t wbuffer[256];
-  uint8_t rbuffer[256];
-
-  int starting_block = 0;
-  int nbr_consuctive_block = 1;
-
-  for (int i = 0; i < 256; i++)
-  {
-    wbuffer[i] = i;
-  }
-
-  memcpy(blockbuffer, wbuffer, 256);
-  sram_onblock_op(blockbuffer, starting_block, nbr_consuctive_block, ALLOC_OP_WRITE);
-  
-  //dump_sram(starting_block);
-
-  sram_onblock_op(blockbuffer, starting_block, nbr_consuctive_block, ALLOC_OP_READ);
-  memcpy(rbuffer, blockbuffer, 256);
-
-  TEST_ASSERT_EQUAL_UINT8_ARRAY(wbuffer, rbuffer, 256);
-}
-#endif
-
-#if 0
 void test_sram_alloc_SRAMReadWrite(void)
 {
   uint32_t addr =  0;
@@ -155,51 +127,8 @@ void test_sram_alloc_SRAMReadWrite(void)
 #endif
 
 #if 0
-void test_sram_alloc_WritemultipleBlocks(void)
-{
-  int id0 = 0;
-  int size0 = 2*1024; /* 2 blocks */
-  int pos = 512 + 128;
-  int len = 128;
-  uint8_t wbuffer[128];
-  int ret;
 
-  for (int i = 0; i < len; i++)
-  {
-    wbuffer[i] = i;
-  }
-
-  mount_allocsystem();
-
-  /* Allocation */
-  ret = sram_block_malloc(id0, size0);
-
-  if (ret == 0)
-  {
-    dbg_msg("Allocation sucess id %d.\n", id0);
-  }
-  else
-  {
-    dbg_msg("Allocation id %d Failed. Err %d\n", id0, ret);
-  }
-
-  ret = sram_alloc_write(id0, pos, wbuffer, len);
-  if (ret >= 0)
-  {
-    dbg_msg("Write sucess\n");
-  }
-  else
-  {
-    dbg_msg("Write Failed Err %d\n", ret);
-  }
-
-  dump_sram(4);
-}
-#endif
-
-#if 1
-
-#define LEN (4*1024)
+#define LEN (1)
 void test_sram_alloc_WriteReadmultipleBlocks(void)
 {
   int id0 = 0;
@@ -259,3 +188,76 @@ void test_sram_alloc_WriteReadmultipleBlocks(void)
 }
 #endif
 
+#if 1
+typedef struct
+{
+  uint8_t id;
+  uint32_t stuff;
+  uint16_t others;
+  uint64_t longer;
+}test_t;
+
+void test_sram_alloc_WriteReadStructures(void)
+{
+  int id0 = 0;
+  int size0 = 5*1024; /* 2 blocks */
+  int pos =  0;
+
+  test_t wbuffer;
+  test_t rbuffer;
+
+  int ret;
+
+  srand(1);
+
+  wbuffer.id = 12;
+  wbuffer.stuff = 0xDEADBEAF;
+  wbuffer.others = 0x0077;
+  wbuffer.longer=  0xDE01C0DECAFEBABE;
+
+  rbuffer.id = 0;
+  rbuffer.stuff = 0;
+  rbuffer.others = 0;
+  rbuffer.longer = 0;
+
+  /* Mount system. */
+  mount_allocsystem();
+
+  /* Allocation */
+  ret = sram_block_malloc(id0, size0);
+
+  if (ret == 0)
+  {
+    dbg_msg("Allocation sucess id %d.\n", id0);
+  }
+  else
+  {
+    dbg_msg("Allocation id %d Failed. Err %d\n", id0, ret);
+  }
+
+  ret = sram_alloc_write(id0, pos, &wbuffer, sizeof(wbuffer));
+  if (ret >= 0)
+  {
+    dbg_msg("Write sucess\n");
+  }
+  else
+  {
+    dbg_msg("Write Failed Err %d\n", ret);
+  }
+
+  ret = sram_alloc_read(id0, pos, &rbuffer, sizeof(rbuffer));
+  if (ret >= 0)
+  {
+    dbg_msg("Read sucess\n");
+  }
+  else
+  {
+    dbg_msg("Read Failed Err %d\n", ret);
+  }
+
+  TEST_ASSERT_EQUAL_UINT8(wbuffer.id, rbuffer.id);
+  TEST_ASSERT_EQUAL_UINT32(wbuffer.stuff, rbuffer.stuff);
+  TEST_ASSERT_EQUAL_UINT16(wbuffer.others, rbuffer.others);
+  TEST_ASSERT_EQUAL_UINT64(wbuffer.longer, rbuffer.longer);
+}
+#endif
