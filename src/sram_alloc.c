@@ -275,7 +275,6 @@ int mount_allocsystem(void)
  
   sram_onblock_op(superblock, 0, 1, ALLOC_OP_READ);
 
-
   if (superblock->magicnbr != (uint32_t)ALLOC_MAGIC_NBR)
     {
       /* SRAM ALLOCATION SYSTEM is not present */
@@ -309,6 +308,8 @@ int mount_allocsystem(void)
       /* If system already mounted load iblocks locally. */
       read_iblocks_sram(superblock, blocktable, alloctable);
     }
+
+  return ALLOC_OK;
 }
 
 /* This function needs a LOCK */
@@ -360,7 +361,7 @@ int sram_block_malloc(int alloc_id, size_t bytenbr)
 
   if (alloctable[alloc_id].used == 1)
   {
-    return ALLOC_ALREADY_ALLOCATED;
+    return ERR_ALLOC_USED;
   }
 
   if ((alloc_id > superblock->alentrynbr) || (alloc_id < 0))
