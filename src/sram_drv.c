@@ -18,7 +18,7 @@ void init_sram(void)
     sram.data[i] = 0xFF; 
   }
 
-  dbg_msg("Sram starting from index zero\n");
+  dbg_msg("Init Drv Sram.\n");
 }
 
 /* Dump the block data. */
@@ -26,7 +26,8 @@ void dump_sram(int blocknbr)
 {
   int i;
 
-  dbg_msg("SRAM memory dump : \n");
+  dbg_msg("SRAM memory dump block %d:\n", blocknbr);
+
   uint32_t addr = ALLOC_START_ADDR + blocknbr * BLOCK_SIZE;
 
   for (i = addr; i < (addr + BLOCK_SIZE); i+=4)
