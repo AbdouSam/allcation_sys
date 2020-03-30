@@ -9,7 +9,6 @@ void setUp(void)
 {
   /* Initialize SRAM to simulate the hardware */
   init_sram();
-  /* mount the file system. */
   
 }
 
@@ -18,87 +17,116 @@ void tearDown(void)
 }
 
 #if 0
-void test_sram_alloc_GlobalTesting(void)
+void test_sram_alloc_MallocFree(void)
 {
-  sram_alloc_t shandle;
-  sram_alloc_t shandle2;
-  sram_alloc_t shandle3;
+  int id0 = 0;
+  int size0 = 1024; /* 2 blocks */
 
-  int ret;
-  
+  int id1 = 10;
+  int size1 = 5 * 512; /* 5 blocks */
+
+  int id2 = 45;
+  int size2 = 7 * 255; /* 3 and half blocks */
+
+  int totalblocks;
+  int blocksize;
+  /* Mounting system */
+
   mount_allocsystem();
+  totalblocks = sram_gettotalblocks();
+  blocksize   = sram_getblocksize();
 
-  if (sram_block_malloc(&shandle, 1024) == 0)
+  /* First allocation */
+  if (sram_block_malloc(id0, size0) == 0)
   {
-    dbg_msg("Allocation sucess id %d, size %d\n", shandle.id, shandle.size);
+    dbg_msg("Allocation sucess id %d.\n", id0);
+  }
+  else
+  {
+    dbg_msg("Allocation id %d Failed.\n", id0);
   }
 
-  dbg_msg("Super blocknbr %d\n", sram_getentrynbr());
+  /* One Entry allocated */
+  TEST_ASSERT_EQUAL(1 , sram_getentrynbr());
 
+  /* USed blocks*/
+  TEST_ASSERT_EQUAL(sram_getalloc_size(id0) / blocksize , sram_getusedblocks());
 
-  if (sram_block_malloc(&shandle2, 512) == 0)
+  if (sram_block_malloc(id1, size1) == 0)
   {
-    dbg_msg("Allocation sucess id %d, size %d\n", shandle2.id, shandle2.size);
+    dbg_msg("Allocation sucess id %d\n", id1);
   }
-  
-  //dump_sram(1);
-
-  dbg_msg("Super freeblocknbr %d\n", sram_getfreeblocks());
-
-  if(sram_block_free(&shandle) == 0)
+  else
   {
-    dbg_msg("Block freed\n");
-  }
-
-  dbg_msg("Super freeblocknbr %d\n", sram_getfreeblocks());
-  dbg_msg("Super allocnbr %d\n", sram_getentrynbr());
-
-  if (sram_block_malloc(&shandle3, 64*512) == 0)
-  {
-    dbg_msg("Allocation sucess id %d, size %d\n", shandle3.id, shandle3.size);
+    dbg_msg("Allocation id %d Failed\n", id1);
   }
   
-  dbg_msg("Super freeblocknbr %d\n", sram_getfreeblocks());
+  /* Two entries allocated. */
+  TEST_ASSERT_EQUAL(2 , sram_getentrynbr());
+
+  /* Used blocks */
+  TEST_ASSERT_EQUAL((sram_getalloc_size(id0) + sram_getalloc_size(id1))/ blocksize,
+                     sram_getusedblocks());
+
+  if(sram_block_free(id0) == 0)
+  {
+    dbg_msg("Block id %d freed\n", id0);
+  }
+
+  /* One Entry Left */
+  TEST_ASSERT_EQUAL(1 , sram_getentrynbr());
+
+  /* we freed id 0, the only used space is id1 */
+  TEST_ASSERT_EQUAL(totalblocks - (sram_getalloc_size(id1) / blocksize),
+                     sram_getfreeblocks());
+
+  /* A third allocation */
+  if (sram_block_malloc(id2, size2) == 0)
+  {
+    dbg_msg("Allocation sucess id %d\n", id2);
+  }
+  else
+  {
+    dbg_msg("Allocation id %d Failed\n", id2);
+  }
+  
+   /* One Entry Left */
+  TEST_ASSERT_EQUAL(2 , sram_getentrynbr());
+
+  /* Used blocks now is id1 and id2 */
+  TEST_ASSERT_EQUAL((sram_getalloc_size(id1) + sram_getalloc_size(id2))/ blocksize,
+                     sram_getusedblocks());
 
   //dump_sram(1);
 }
 
 #endif
 
-#if 1
+#if 0
 void test_sram_alloc_BlockOP(void)
 {
   uint8_t blockbuffer[512];
 
-  uint8_t buffer[256];
+  uint8_t wbuffer[256];
   uint8_t rbuffer[256];
+
+  int starting_block = 0;
+  int nbr_consuctive_block = 1;
 
   for (int i = 0; i < 256; i++)
   {
-    buffer[i] = i;
+    wbuffer[i] = i;
   }
 
-  dbg_msg("Write data : \n");
-  for (int i = 0; i < 128; ++i)
-  {
-    dbg_msg("%02X ", buffer[i]);
-  }
-  dbg_msg("\n");
-
-  memcpy(blockbuffer, buffer, 256);
-  sram_onblock_op(blockbuffer, 0, 1, ALLOC_OP_WRITE);
+  memcpy(blockbuffer, wbuffer, 256);
+  sram_onblock_op(blockbuffer, starting_block, nbr_consuctive_block, ALLOC_OP_WRITE);
   
-  dump_sram(0);
+  //dump_sram(starting_block);
 
-  sram_onblock_op(blockbuffer, 0, 1, ALLOC_OP_READ);
+  sram_onblock_op(blockbuffer, starting_block, nbr_consuctive_block, ALLOC_OP_READ);
   memcpy(rbuffer, blockbuffer, 256);
 
-  dbg_msg("read data : \n");
-  for (int i = 0; i < 128; ++i)
-  {
-    dbg_msg("%02X ", rbuffer[i]);
-  }
-  dbg_msg("\n");
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(wbuffer, rbuffer, 256);
 }
 #endif
 
@@ -123,5 +151,48 @@ void test_sram_alloc_SRAMReadWrite(void)
 
   sram_drvread(addr + 4, &rdata);
   dbg_msg("Read data : %08X\n", rdata);
+}
+#endif
+
+#if 1
+void test_sram_alloc_WritemultipleBlocks(void)
+{
+  int id0 = 0;
+  int size0 = 2*1024; /* 2 blocks */
+  int pos = 512 + 128;
+  int len = 128;
+  uint8_t wbuffer[128];
+  int ret;
+
+  for (int i = 0; i < len; i++)
+  {
+    wbuffer[i] = i;
+  }
+
+  mount_allocsystem();
+
+  /* Allocation */
+  ret = sram_block_malloc(id0, size0);
+
+  if (ret == 0)
+  {
+    dbg_msg("Allocation sucess id %d.\n", id0);
+  }
+  else
+  {
+    dbg_msg("Allocation id %d Failed. Err %d\n", id0, ret);
+  }
+
+  ret = sram_alloc_write(id0, pos, wbuffer, len);
+  if (ret >= 0)
+  {
+    dbg_msg("Write sucess\n");
+  }
+  else
+  {
+    dbg_msg("Write Failed Err %d\n", ret);
+  }
+
+  dump_sram(4);
 }
 #endif
