@@ -458,9 +458,8 @@ int sram_block_free(int alloc_id)
 }
 static uint8_t alloc_buffer[BLOCK_SIZE];
 
-int sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len)
+static int sram_alloc_op(int alloc_id, uint32_t pos, void *buffer, uint32_t len, bool write)
 {
-  /* Get information from handle */
   int i;
   int size;
   
@@ -474,13 +473,13 @@ int sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len)
   uint32_t blocktrim;
   uint32_t trim;
   uint32_t bufflen;
+  uint32_t lastlen;
   uint8_t *localbuffer = local_buffer;
   uint32_t nextblock;
 
   /* This also checks if id is allocated. */
   size = sram_getalloc_size(alloc_id);
   
-  /*  */
   if(size < 0)
   {
     return size;
@@ -490,7 +489,7 @@ int sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len)
   if ((len + pos) > size)
   {
     /* length of data exceed allocated space */
-    return ERR_ALLOC_WRITE_OVER;
+    return ERR_ALLOC_RW_EXCEED;
   }
 
   /* Determine how many blocks are to be written */
@@ -500,33 +499,30 @@ int sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len)
 
   if ((len + pos) > BLOCK_SIZE)
   {
-    blocktrim = ((len + pos) % BLOCK_SIZE);
+    blocktrim = (BLOCK_SIZE - ((len + pos) % BLOCK_SIZE)) % BLOCK_SIZE;
   }
   else
   {
     blocktrim = BLOCK_SIZE - len - pos;
   }
 
+  /* first block to operate. */
   nextblock = alloctable[alloc_id].start;
 
-  /* If we start writing from other than the first block. */
-
+  /* Offset from the first block. */
   for (i = blockoffset; i > 0; i--)
   {
     nextblock = blocktable[nextblock].next;
   }
-
-
   
-  dbg_msg("blockoffset %d, firstposoffset %d, nbrblockstowrite %d, trim %d\n",
-           blockoffset, posoffset, nbrblocks, blocktrim);
+  dbg_msg("%s :blockoffset %d, firstposoffset %d, nbrblockstowrite %d, trim %d\n",
+           ((write)?"Write" : "Read"), blockoffset, posoffset, nbrblocks, blocktrim);
 
-
-  /* Read sram before writing. loop through, */
   trim = 0;
+  lastlen = 0;
+
   for (i = nbrblocks; i > 0; i--)
   {
-
     /* Read the buffer locally. */
     sram_onblock_op(localbuffer, nextblock, 1, ALLOC_OP_READ);
 
@@ -539,11 +535,22 @@ int sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len)
 
     dbg_msg("blocks number = %d, len %d, off %d\n", nextblock, bufflen, posoffset);
 
-    /* OverWrite locally by buffer data. */
-    memcpy(localbuffer + posoffset, buffer, bufflen);
+    if (write)
+    {
+      /* OverWrite locally by buffer data. */
+      memcpy(localbuffer + posoffset, buffer + lastlen, bufflen);
 
-    /* Write the block back */
-    sram_onblock_op(localbuffer, nextblock, 1, ALLOC_OP_WRITE);
+      /* Write the block back */
+      sram_onblock_op(localbuffer, nextblock, 1, ALLOC_OP_WRITE);
+    }
+    else
+    {
+      /* copy to read buffer.*/
+      memcpy(buffer + lastlen, localbuffer + posoffset, bufflen);
+    }
+
+    /* Copy to the buffer from last length. */
+    lastlen += bufflen;
 
     /* Jump to next block */
     nextblock = blocktable[nextblock].next;
@@ -552,7 +559,17 @@ int sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len)
     posoffset = 0;
   }
 
-  dbg_msg("Write finished\n");
+  return ALLOC_OK;
+}
+int sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len)
+{
+  return sram_alloc_op(alloc_id, pos, buffer, len, ALLOC_OP_WRITE);
+}
+
+/* Read a maximum of 512 byte*/
+int sram_alloc_read(int alloc_id, uint32_t pos, void *buffer, uint32_t len)
+{
+  return sram_alloc_op(alloc_id, pos, buffer, len, ALLOC_OP_READ);
 }
 
 int sram_getentrynbr(void)

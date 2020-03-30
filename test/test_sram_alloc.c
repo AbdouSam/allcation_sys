@@ -154,7 +154,7 @@ void test_sram_alloc_SRAMReadWrite(void)
 }
 #endif
 
-#if 1
+#if 0
 void test_sram_alloc_WritemultipleBlocks(void)
 {
   int id0 = 0;
@@ -196,3 +196,66 @@ void test_sram_alloc_WritemultipleBlocks(void)
   dump_sram(4);
 }
 #endif
+
+#if 1
+
+#define LEN (4*1024)
+void test_sram_alloc_WriteReadmultipleBlocks(void)
+{
+  int id0 = 0;
+  int size0 = 5*1024; /* 2 blocks */
+  int pos = 256 + 128;
+  int len = LEN;
+  uint8_t wbuffer[LEN];
+  uint8_t rbuffer[LEN];
+  int ret;
+
+  srand(1);
+
+  for (int i = 0; i < len; i++)
+  {
+    wbuffer[i] = rand() % 0xFF;
+
+    rbuffer[i] = 0xFF;
+
+  }
+
+  /* Mount system. */
+  mount_allocsystem();
+
+  /* Allocation */
+  ret = sram_block_malloc(id0, size0);
+
+  if (ret == 0)
+  {
+    dbg_msg("Allocation sucess id %d.\n", id0);
+  }
+  else
+  {
+    dbg_msg("Allocation id %d Failed. Err %d\n", id0, ret);
+  }
+
+  ret = sram_alloc_write(id0, pos, wbuffer, len);
+  if (ret >= 0)
+  {
+    dbg_msg("Write sucess\n");
+  }
+  else
+  {
+    dbg_msg("Write Failed Err %d\n", ret);
+  }
+
+  ret = sram_alloc_read(id0, pos, rbuffer, len);
+  if (ret >= 0)
+  {
+    dbg_msg("Read sucess\n");
+  }
+  else
+  {
+    dbg_msg("Read Failed Err %d\n", ret);
+  }
+
+  TEST_ASSERT_EQUAL_UINT8_ARRAY(wbuffer, rbuffer, len);
+}
+#endif
+

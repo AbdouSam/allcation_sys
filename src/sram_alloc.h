@@ -20,7 +20,7 @@ enum
   ERR_INVALID_ALLOC_HANDLE  = -6,
   ERR_ALLOC_SYS_NOTFOUND    = -7,
   ERR_ALLOC_ID_INVALID      = -8,
-  ERR_ALLOC_WRITE_OVER      = -9,
+  ERR_ALLOC_RW_EXCEED       = -9,
 };
 
 /* handle to identify an allocation. */
@@ -46,6 +46,7 @@ int sram_getalloc_valid(int alloc_id);
 int sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write);
 
 int sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len);
+int sram_alloc_read(int alloc_id, uint32_t pos, void *buffer, uint32_t len);
 
 
 #endif // SRAM_ALLOC_H
