@@ -35,6 +35,8 @@
  *   We can make that more flexiblewe can increase the block size more thn 512
  *   but this will create a problem, one entry in block table should be 4 byte
  *   the index is 1 byte (256 max address)
+ *
+ * - Many routines needs a LOCK  or a mutex, no mecanism is applyed for now.
  */
 
 /* a block entry, holds data about a block */
@@ -85,7 +87,7 @@ static superblock_t gsuper_block;
 static uint8_t local_buffer[BLOCK_SIZE];
 
 #ifdef TEST
-int sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write)
+static void sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write)
 {
   int i;
   uint32_t *data;
@@ -122,7 +124,18 @@ int sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write
 #endif
 
 #ifndef TEST
-int sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write)
+
+/** 
+ * @brief : low level writing consuctive memory blocks.
+ *
+ * @param buffer : pointer to data to operate on.
+ * @param blockstr: starting block of reading or writing data
+ * @param blocknbr : nbr of consuctive blocks to write or read
+ * @param write : 1 write 0 read.
+
+ * @return no ret.
+ */
+static void sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write)
 {
   int i;
   uint32_t *source;
@@ -150,7 +163,10 @@ int sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write
 }
 #endif
 
-/* Limitation of this function, super table and alloc tables should be of size 1. */
+/**
+ * @brief initialize block and allocation tables for the first time.
+ *
+ */
 static void init_tables(void)
 {
   int i;
@@ -209,6 +225,9 @@ static void update_alloc_superblock(superblock_t *superblock, uint8_t blkbnr)
   superblock->freeblocknbr = DATA_BLKNBR - superblock->usedblocknbr;
 }
 
+/**
+ * @brief Remove one entry from the super block and update the size
+ */
 static void update_free_superblock(superblock_t *superblock, uint8_t blkbnr)
 {
   superblock->allocnbr     = superblock->allocnbr - 1; /* No allocation yet. */
@@ -250,6 +269,13 @@ static void sync_iblocks_sram(superblock_t *superblock,
   sram_onblock_op(alloctable, superblock->alstrindex, 1, ALLOC_OP_WRITE);
 }
 
+/**
+ * @brief test if an allocation index is already used
+ * 
+ * @param alloc_id : allocation index
+ *
+ * @ret return 0 (ALLOC_OK), or a negative error code.
+ */
 static int isallocidvalid(int alloc_id)
 {
   superblock_t *superblock = &gsuper_block;
@@ -262,6 +288,121 @@ static int isallocidvalid(int alloc_id)
   {
     return ALLOC_OK;
   }
+}
+
+/**
+ * @brief: write or read to the allocation space a buffer of length len
+ *
+ * @param alloc_id : index of allocation
+ * @param pos : byte offset of the allocation where to start operating on data
+ * @param buffer : pointer to a data structure, array or single data.
+ * @param len : length in bytes of the data operated on.
+ * @param write : 1 Write, 0 Read
+ * 
+ * @return: 0 (ALLOC_OK) or negativ number with error code. see error enum
+ */
+static int sram_alloc_op(int alloc_id, uint32_t pos, void *buffer, uint32_t len, bool write)
+{
+  int i;
+  int size;
+  
+  superblock_t *superblock = &gsuper_block;
+  block_t      *blocktable = gblock_table;
+  alloc_t      *alloctable = galloc_table;
+
+  uint32_t blockoffset;
+  uint32_t posoffset;
+  uint32_t nbrblocks;
+  uint32_t blocktrim;
+  uint32_t trim;
+  uint32_t bufflen;
+  uint32_t lastlen;
+  uint8_t *localbuffer = local_buffer;
+  uint32_t nextblock;
+
+  /* This also checks if id is allocated. */
+  size = sram_getalloc_size(alloc_id);
+  
+  if(size < 0)
+  {
+    return size;
+  }
+
+  /* check whether position is in the range of writing. */
+  if ((len + pos) > size)
+  {
+    /* length of data exceed allocated space */
+    return ERR_ALLOC_RW_EXCEED;
+  }
+
+  /* Determine how many blocks are to be written */
+  blockoffset = (pos / BLOCK_SIZE);
+  posoffset = (pos % BLOCK_SIZE);
+  nbrblocks = ((posoffset + len) / BLOCK_SIZE) + (((posoffset + len) % BLOCK_SIZE) > 0);
+
+  if ((len + pos) > BLOCK_SIZE)
+  {
+    blocktrim = (BLOCK_SIZE - ((len + pos) % BLOCK_SIZE)) % BLOCK_SIZE;
+  }
+  else
+  {
+    blocktrim = BLOCK_SIZE - len - pos;
+  }
+
+  /* first block to operate. */
+  nextblock = alloctable[alloc_id].start;
+
+  /* Offset from the first block. */
+  for (i = blockoffset; i > 0; i--)
+  {
+    nextblock = blocktable[nextblock].next;
+  }
+  
+  dbg_msg("%s :blockoffset %d, firstposoffset %d, nbrblockstowrite %d, trim %d\n",
+           ((write)?"Write" : "Read"), blockoffset, posoffset, nbrblocks, blocktrim);
+
+  trim = 0;
+  lastlen = 0;
+
+  for (i = nbrblocks; i > 0; i--)
+  {
+    /* Read the buffer locally. */
+    sram_onblock_op(localbuffer, nextblock, 1, ALLOC_OP_READ);
+
+    if (i == 1)
+    {
+      trim = blocktrim;
+    }
+
+    bufflen = BLOCK_SIZE - posoffset - trim;
+
+    dbg_msg("blocks number = %d, len %d, off %d\n", nextblock, bufflen, posoffset);
+
+    if (write)
+    {
+      /* OverWrite locally by buffer data. */
+      memcpy(localbuffer + posoffset, buffer + lastlen, bufflen);
+
+      /* Write the block back */
+      sram_onblock_op(localbuffer, nextblock, 1, ALLOC_OP_WRITE);
+    }
+    else
+    {
+      /* copy to read buffer.*/
+      memcpy(buffer + lastlen, localbuffer + posoffset, bufflen);
+    }
+
+    /* Copy to the buffer from last length. */
+    lastlen += bufflen;
+
+    /* Jump to next block */
+    nextblock = blocktable[nextblock].next;
+
+    /* offset serves only at the begining. */
+    posoffset = 0;
+  }
+
+  return ALLOC_OK;
 }
 
 int mount_allocsystem(void)
@@ -312,9 +453,8 @@ int mount_allocsystem(void)
   return ALLOC_OK;
 }
 
-/* This function needs a LOCK */
 
-/* Note The minimum Allocation block is 512byte */
+
 int sram_block_malloc(int alloc_id, size_t bytenbr)
 {
   int i, j;
@@ -457,111 +597,7 @@ int sram_block_free(int alloc_id)
 
   return ALLOC_OK;
 }
-static uint8_t alloc_buffer[BLOCK_SIZE];
 
-static int sram_alloc_op(int alloc_id, uint32_t pos, void *buffer, uint32_t len, bool write)
-{
-  int i;
-  int size;
-  
-  superblock_t *superblock = &gsuper_block;
-  block_t      *blocktable = gblock_table;
-  alloc_t      *alloctable = galloc_table;
-
-  uint32_t blockoffset;
-  uint32_t posoffset;
-  uint32_t nbrblocks;
-  uint32_t blocktrim;
-  uint32_t trim;
-  uint32_t bufflen;
-  uint32_t lastlen;
-  uint8_t *localbuffer = local_buffer;
-  uint32_t nextblock;
-
-  /* This also checks if id is allocated. */
-  size = sram_getalloc_size(alloc_id);
-  
-  if(size < 0)
-  {
-    return size;
-  }
-
-  /* check whether position is in the range of writing. */
-  if ((len + pos) > size)
-  {
-    /* length of data exceed allocated space */
-    return ERR_ALLOC_RW_EXCEED;
-  }
-
-  /* Determine how many blocks are to be written */
-  blockoffset = (pos / BLOCK_SIZE);
-  posoffset = (pos % BLOCK_SIZE);
-  nbrblocks = ((posoffset + len) / BLOCK_SIZE) + (((posoffset + len) % BLOCK_SIZE) > 0);
-
-  if ((len + pos) > BLOCK_SIZE)
-  {
-    blocktrim = (BLOCK_SIZE - ((len + pos) % BLOCK_SIZE)) % BLOCK_SIZE;
-  }
-  else
-  {
-    blocktrim = BLOCK_SIZE - len - pos;
-  }
-
-  /* first block to operate. */
-  nextblock = alloctable[alloc_id].start;
-
-  /* Offset from the first block. */
-  for (i = blockoffset; i > 0; i--)
-  {
-    nextblock = blocktable[nextblock].next;
-  }
-  
-  dbg_msg("%s :blockoffset %d, firstposoffset %d, nbrblockstowrite %d, trim %d\n",
-           ((write)?"Write" : "Read"), blockoffset, posoffset, nbrblocks, blocktrim);
-
-  trim = 0;
-  lastlen = 0;
-
-  for (i = nbrblocks; i > 0; i--)
-  {
-    /* Read the buffer locally. */
-    sram_onblock_op(localbuffer, nextblock, 1, ALLOC_OP_READ);
-
-    if (i == 1)
-    {
-      trim = blocktrim;
-    }
-
-    bufflen = BLOCK_SIZE - posoffset - trim;
-
-    dbg_msg("blocks number = %d, len %d, off %d\n", nextblock, bufflen, posoffset);
-
-    if (write)
-    {
-      /* OverWrite locally by buffer data. */
-      memcpy(localbuffer + posoffset, buffer + lastlen, bufflen);
-
-      /* Write the block back */
-      sram_onblock_op(localbuffer, nextblock, 1, ALLOC_OP_WRITE);
-    }
-    else
-    {
-      /* copy to read buffer.*/
-      memcpy(buffer + lastlen, localbuffer + posoffset, bufflen);
-    }
-
-    /* Copy to the buffer from last length. */
-    lastlen += bufflen;
-
-    /* Jump to next block */
-    nextblock = blocktable[nextblock].next;
-
-    /* offset serves only at the begining. */
-    posoffset = 0;
-  }
-
-  return ALLOC_OK;
-}
 int sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len)
 {
   return sram_alloc_op(alloc_id, pos, buffer, len, ALLOC_OP_WRITE);
