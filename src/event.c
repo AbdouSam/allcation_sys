@@ -1,12 +1,15 @@
 #include "event.h"
 #include "debug.h"
 
+#define CONFIG_EXTMNG_MAXEXTS 16
+
+#define EXT_NBR             CONFIG_EXTMNG_MAXEXTS
 #define NO_EVENT_LEN        0
 #define DIGITAL_EVENT_LEN   4
 #define ANALOG_EVENT_LEN    4
 #define MODBUS_EVENT_LEN    256
 #define POWER_EVENT_LEN     0
-#define EXT_EVENT_LEN       20
+#define EXT_EVENT_LEN       21
 #define COUNTER1_EVENT_LEN  8
 
 #define getindex(x, y) if ((x>=y)) return ((x- y));
@@ -24,6 +27,7 @@ typedef struct
   uint32_t period;    /* In seconds. */
   uint32_t number;    /* number of event stored. */
   uint32_t lastvalue;
+  uint8_t *buffer;    /* last read buffer for long data */
   bool attached;
 }event_t;
 
@@ -38,7 +42,7 @@ static void event_modbus(void *);
 /* Event list */
 static event_t gevent_list[EVENT_TYPE_NBR];
 
-static event_handler_ft evhandler_list[] = 
+static event_handler_ft gevhandler_list[] = 
 {
   event_dig_output,    /* DO_EVENT */
   event_modbus,        /* MODBUS_EVENT */
@@ -77,6 +81,9 @@ static event_handler_ft evhandler_list[] =
   event_extension,     /* EXT15_EVENT */
 };
 
+static uint8_t extension_buffer[EXT_NBR][EXT_EVENT_LEN];
+static uint8_t modbus_buffer[MODBUS_EVENT_LEN];
+
 static uint32_t current_time = 0;
 
 static int get_evtypeindex(event_type_t evtype)
@@ -100,7 +107,34 @@ static void print_event(void *ev)
   event_dbg_msg("Compare with lastvalue %d.\n", event->lastvalue);
 }
 
-static void compare_store_event(event_t *event, uint32_t currval, uint32_t datalen)
+static void compare_store_array_event(event_t *event, uint8_t *buffer, uint32_t len)
+{ 
+  int i, j;
+
+  for (i = 0; i < len; i++)
+  {
+    if (buffer[i] != event->buffer[i])
+    {
+      /* Get current UTC time. */
+      
+      /* open file. */
+      
+      /* Write TIME:BUFFER */
+
+      /* Close file */
+      event_dbg_msg("Event: Store Time: %ds, Data: %d\n",current_time, buffer[0]);
+
+      /* copy buffer locally */
+      memcpy(event->buffer, buffer, len);
+
+      event->number++;
+      break;
+    }
+  }
+
+}
+
+static void compare_store_value_event(event_t *event, uint32_t currval, uint32_t datalen)
 {
   /* Compare with last value */
   if (currval != event->lastvalue)
@@ -126,7 +160,7 @@ static void event_dig_input(void *ev)
   uint32_t currentval;
   /* Read Current value.*/
 
-  compare_store_event(event, currentval, ANALOG_EVENT_LEN);
+  compare_store_value_event(event, currentval, DIGITAL_EVENT_LEN);
 
 }
 
@@ -138,7 +172,7 @@ static void event_dig_output(void *ev)
   uint32_t currentval;
   /* Read Current value.*/
 
-  compare_store_event(event, currentval, ANALOG_EVENT_LEN);
+  compare_store_value_event(event, currentval, DIGITAL_EVENT_LEN);
 }
 
 static void event_ana_input(void *ev)
@@ -149,7 +183,7 @@ static void event_ana_input(void *ev)
   uint32_t currentval = 6;
   /* Read Current value.*/
 
-  compare_store_event(event, currentval, ANALOG_EVENT_LEN);
+  compare_store_value_event(event, currentval, ANALOG_EVENT_LEN);
   
 }
 
@@ -161,7 +195,7 @@ static void event_ana_output(void *ev)
   uint32_t currentval = 5;
   /* Read Current value.*/
 
-  compare_store_event(event, currentval, ANALOG_EVENT_LEN);
+  compare_store_value_event(event, currentval, ANALOG_EVENT_LEN);
 }
 
 static void event_counter_input(void *ev)
@@ -172,7 +206,7 @@ static void event_counter_input(void *ev)
   uint32_t currentval = 1;
   /* Read Current value.*/
 
-  compare_store_event(event, currentval, ANALOG_EVENT_LEN);
+  compare_store_value_event(event, currentval, COUNTER1_EVENT_LEN);
 }
 
 static void event_extension(void *ev)
@@ -180,10 +214,9 @@ static void event_extension(void *ev)
   print_event(ev);
   event_t *event = (event_t *)ev;
 
-  uint32_t currentval;
+  uint8_t *currentbuff;
   /* Read Current value.*/
-
-  compare_store_event(event, currentval, ANALOG_EVENT_LEN);
+  compare_store_array_event(event, currentbuff, EXT_EVENT_LEN);
 }
 
 static void event_modbus(void *ev)
@@ -191,10 +224,12 @@ static void event_modbus(void *ev)
   print_event(ev);
   event_t *event = (event_t *)ev;
 
-  uint32_t currentval;
+  uint8_t *currentbuff;
   /* Read Current value.*/
+  /* It is not a good idea to store the full length 256 */
+  /* But only the length requested. */
 
-  compare_store_event(event, currentval, ANALOG_EVENT_LEN);
+  compare_store_array_event(event, currentbuff, MODBUS_EVENT_LEN);
 }
 
 
@@ -212,7 +247,7 @@ void event_init()
 {
   int i = 0;
   event_t *evlist = gevent_list;
-  event_handler_ft *evhandler = evhandler_list;
+  event_handler_ft *evhandler = gevhandler_list;
 
   /* Read config from the Flash. */
   /* If it exsist if not, initialize it. */
@@ -240,6 +275,17 @@ void event_init()
       evlist[i].attached = false;
       evlist[i].lastvalue = 0;
     }
+
+    /* Initialize extensions buffers. */
+
+    for (i = EXT0_EVENT; i <= EXT15_EVENT; i++)
+    {
+      evlist[i].buffer = extension_buffer[i - EXT0_EVENT];
+    }
+
+    /* Initialize modbus buffer. */
+
+    evlist[MODBUS_EVENT].buffer = modbus_buffer;
   }
 
   event_dbg_msg("Event Init.\n");
@@ -280,6 +326,8 @@ int event_remove(event_type_t evtype)
   return EVENT_OK;
 }
 
+/* Called Exactly every one second. */
+
 void event_loop(void)
 {
   int i;
@@ -315,7 +363,6 @@ int event_geteventnbr(event_type_t evtype)
 
   return evlist[evtype].number;
 }
-
 
 /* Getters */
 
