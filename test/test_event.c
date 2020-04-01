@@ -38,6 +38,8 @@ void test_event_AttachRemoveEvent(void)
   }
 }
 #endif
+
+#if 1
 void test_event_RegisterDigitalinputEvent(void)
 {
 
@@ -75,3 +77,4 @@ void test_event_RegisterDigitalinputEvent(void)
   evnbr = event_geteventnbr(COUNTER8_EVENT);
   TEST_ASSERT_EQUAL(1, evnbr);
 }
+#endif

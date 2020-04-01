@@ -2,6 +2,7 @@
 #include "debug.h"
 
 #define CONFIG_EXTMNG_MAXEXTS 16
+#define CONFIG_EXTMNG_LEN     21
 
 #define EXT_NBR             CONFIG_EXTMNG_MAXEXTS
 #define NO_EVENT_LEN        0
@@ -9,14 +10,14 @@
 #define ANALOG_EVENT_LEN    4
 #define MODBUS_EVENT_LEN    256
 #define POWER_EVENT_LEN     0
-#define EXT_EVENT_LEN       21
+#define EXT_EVENT_LEN       CONFIG_EXTMNG_LEN
 #define COUNTER1_EVENT_LEN  8
 
 #define getindex(x, y) if ((x>=y)) return ((x- y));
 
 
 /* This Creates a type event_handler_ft */
-typedef void (*event_handler_ft)(void *);
+typedef void (*event_handler_ft)(void *, bool);
 
 /* an event */
 typedef struct
@@ -26,18 +27,18 @@ typedef struct
   event_mode_t mode;
   uint32_t period;    /* In seconds. */
   uint32_t number;    /* number of event stored. */
-  uint32_t lastvalue;
+  uint32_t lastvalue; /* last value for data events */
   uint8_t *buffer;    /* last read buffer for long data */
   bool attached;
 }event_t;
 
-static void event_dig_input(void *);
-static void event_dig_output(void *);
-static void event_ana_input(void *);
-static void event_ana_output(void *);
-static void event_counter_input(void *);
-static void event_extension(void *);
-static void event_modbus(void *);
+static void event_dig_input(void *, bool store);
+static void event_dig_output(void *, bool store);
+static void event_ana_input(void *, bool store);
+static void event_ana_output(void *, bool store);
+static void event_counter_input(void *, bool store);
+static void event_extension(void *, bool store);
+static void event_modbus(void *, bool store);
 
 /* Event list */
 static event_t gevent_list[EVENT_TYPE_NBR];
@@ -98,13 +99,11 @@ static int get_evtypeindex(event_type_t evtype)
   return 0;
 }
 
-static void print_event(void *ev)
+static void print_event(void *ev, int index)
 {
   event_t *event = (event_t *)ev;
-  int index = get_evtypeindex(event->type);
 
-  event_dbg_msg("Read Event type: %d. at id : %d, ", event->type, index);
-  event_dbg_msg("Compare with lastvalue %d.\n", event->lastvalue);
+  event_dbg_msg("Handler EvType: %d at id: %d, ", event->type, index);
 }
 
 static void compare_store_array_event(event_t *event, uint8_t *buffer, uint32_t len)
@@ -125,7 +124,7 @@ static void compare_store_array_event(event_t *event, uint8_t *buffer, uint32_t 
       event_dbg_msg("Event: Store Time: %ds, Data: %d\n",current_time, buffer[0]);
 
       /* copy buffer locally */
-      memcpy(event->buffer, buffer, len);
+      //memcpy(event->buffer, buffer, len);
 
       event->number++;
       break;
@@ -152,84 +151,161 @@ static void compare_store_value_event(event_t *event, uint32_t currval, uint32_t
   }
 }
 
-static void event_dig_input(void *ev)
+static void read_current_value(uint32_t *val, int index)
+{
+  /* Function for testing only, each module will call its own reading method */
+}
+
+static void read_current_buffer(uint8_t *buff, int index)
+{
+  /* Function for testing only, each module will call its own reading method */
+}
+
+static void event_dig_input(void *ev, bool store)
 {
   event_t *event = (event_t *)ev;
-  print_event(ev);
+  int index = get_evtypeindex(event->type);
 
   uint32_t currentval;
-  /* Read Current value.*/
 
-  compare_store_value_event(event, currentval, DIGITAL_EVENT_LEN);
+  if (store)
+  {
+    print_event(ev, index);
+    read_current_value(&currentval, index);
+    compare_store_value_event(event, currentval, DIGITAL_EVENT_LEN);
+  }
+  else
+  {
+    /* Update the last value */
+    read_current_value(&event->lastvalue, index);
+  }
 
 }
 
-static void event_dig_output(void *ev)
+static void event_dig_output(void *ev, bool store)
 {
   event_t *event = (event_t *)ev;
-  print_event(ev);
+  int index = get_evtypeindex(event->type);
 
   uint32_t currentval;
-  /* Read Current value.*/
 
-  compare_store_value_event(event, currentval, DIGITAL_EVENT_LEN);
+  if (store)
+  {
+    print_event(ev, index);
+    read_current_value(&currentval, index);
+    compare_store_value_event(event, currentval, DIGITAL_EVENT_LEN);
+  }
+  else
+  {
+    /* Update the last value */
+    read_current_value(&event->lastvalue, index);
+  }
 }
 
-static void event_ana_input(void *ev)
+static void event_ana_input(void *ev, bool store)
 {
   event_t *event = (event_t *)ev;
-  print_event(ev);
+  int index = get_evtypeindex(event->type);
 
   uint32_t currentval = 6;
-  /* Read Current value.*/
 
-  compare_store_value_event(event, currentval, ANALOG_EVENT_LEN);
-  
+  if (store)
+  {
+    print_event(ev, index);
+    read_current_value(&currentval, index);
+    compare_store_value_event(event, currentval, ANALOG_EVENT_LEN);
+  }
+  else
+  {
+    /* Update the last value */
+    read_current_value(&event->lastvalue, index);
+  }
 }
 
-static void event_ana_output(void *ev)
+static void event_ana_output(void *ev, bool store)
 {
-  print_event(ev);
   event_t *event = (event_t *)ev;
+  int index = get_evtypeindex(event->type);
 
   uint32_t currentval = 5;
-  /* Read Current value.*/
 
-  compare_store_value_event(event, currentval, ANALOG_EVENT_LEN);
+  if (store)
+  {
+    print_event(ev, index);
+    read_current_value(&currentval, index);
+    compare_store_value_event(event, currentval, ANALOG_EVENT_LEN);
+  }
+  else
+  {
+    /* Update the last value */
+    read_current_value(&event->lastvalue, index);
+  }
 }
 
-static void event_counter_input(void *ev)
+static void event_counter_input(void *ev, bool store)
 {
-  print_event(ev);
   event_t *event = (event_t *)ev;
+  int index = get_evtypeindex(event->type);
 
   uint32_t currentval = 1;
-  /* Read Current value.*/
 
-  compare_store_value_event(event, currentval, COUNTER1_EVENT_LEN);
+  if (store)
+  {
+    print_event(ev, index);
+    read_current_value(&currentval, index);
+    compare_store_value_event(event, currentval, COUNTER1_EVENT_LEN);
+  }
+  else
+  {
+    /* Update the last value */
+    read_current_value(&event->lastvalue, index);
+  }
 }
 
-static void event_extension(void *ev)
+static void event_extension(void *ev, bool store)
 {
-  print_event(ev);
   event_t *event = (event_t *)ev;
+  int index = get_evtypeindex(event->type);
 
   uint8_t *currentbuff;
-  /* Read Current value.*/
-  compare_store_array_event(event, currentbuff, EXT_EVENT_LEN);
+
+  if (store)
+  {
+    print_event(ev, index);
+    read_current_buffer(currentbuff, index);
+    compare_store_array_event(event, currentbuff, EXT_EVENT_LEN);
+  }
+  else
+  {
+    read_current_buffer(event->buffer, index);
+    /* update the buffer */
+  }
+
 }
 
-static void event_modbus(void *ev)
+static void event_modbus(void *ev, bool store)
 {
-  print_event(ev);
   event_t *event = (event_t *)ev;
+  int index = get_evtypeindex(event->type);
+
 
   uint8_t *currentbuff;
+
   /* Read Current value.*/
   /* It is not a good idea to store the full length 256 */
   /* But only the length requested. */
 
-  compare_store_array_event(event, currentbuff, MODBUS_EVENT_LEN);
+  if (store)
+  {
+    print_event(ev, index);
+    read_current_buffer(currentbuff, index);
+    compare_store_array_event(event, currentbuff, MODBUS_EVENT_LEN);
+  }
+  else
+  {
+    read_current_buffer(event->buffer, index);
+    /* update the buffer */
+  }
 }
 
 
@@ -240,6 +316,8 @@ static bool isevtype_valid(event_type_t evtype)
 
 static bool restoreconfig(event_t * evlist)
 {
+  /* Restore the config of the list*/
+  /* Restore: Attach, mode, period */
   return false;
 }
 
@@ -248,6 +326,7 @@ void event_init()
   int i = 0;
   event_t *evlist = gevent_list;
   event_handler_ft *evhandler = gevhandler_list;
+  event_handler_ft handler;
 
   /* Read config from the Flash. */
   /* If it exsist if not, initialize it. */
@@ -256,24 +335,45 @@ void event_init()
     event_dbg_msg("Event: Restore config found.\n");
 
     /* Get last value from SRAM */
+    for (i = 0; i < EVENT_TYPE_NBR; i++)
+    {
+      evlist[i].type = i;
+      evlist[i].handler = evhandler[i];
 
-    evlist[i].lastvalue = 0xDEADBEAF;
+      /* Update the last value and number without store. */
+      handler = evlist[i].handler;
+      handler(&evlist[i], false);
+
+    }
+
+    for (i = EXT0_EVENT; i <= EXT15_EVENT; i++)
+    {
+      evlist[i].buffer = extension_buffer[i - EXT0_EVENT];
+
+      /* this should be a memcpy from the SRAM last value. */
+      memset(evlist[i].buffer, '\0', EXT_EVENT_LEN);
+    }
+
+    evlist[MODBUS_EVENT].buffer = modbus_buffer;
+    /* this should be a memcpy from the SRAM last value. */
+    memset(evlist[MODBUS_EVENT].buffer, '\0', MODBUS_EVENT_LEN);
   }
   else
   {
     event_dbg_msg("Event: No stored config found.\n");
 
-    /* Loop for all the eventstypes */
     for (i = 0; i < EVENT_TYPE_NBR; i++)
     {
-      /* Attach handlers to thier types. */
       evlist[i].type = i;
       evlist[i].handler = evhandler[i];
       evlist[i].mode = ON_TIME;
       evlist[i].period = 0x01;
       evlist[i].number = 0;
       evlist[i].attached = false;
-      evlist[i].lastvalue = 0;
+
+      /* Update the last value with the current value without store. */
+      handler = evlist[i].handler;
+      handler(&evlist[i], false);
     }
 
     /* Initialize extensions buffers. */
@@ -344,9 +444,9 @@ void event_loop(void)
     {
       if ((current_time % evlist[i].period) == 0U)
       {
-        /*Queue event for Change check and store.*/
+        /* Call event handler and store if any change.*/
         handler = evlist[i].handler;
-        handler(&evlist[i]);
+        handler(&evlist[i], true);
       }
     }
   }
@@ -366,6 +466,14 @@ int event_geteventnbr(event_type_t evtype)
 
 /* Getters */
 
+/**
+ * @brief get the attach status of an eventtype
+ *
+ * @param evtype, the event type
+ *
+ * @return true if attached false if not.
+ *         a negative error code if fails.
+ */
 int event_getstatus(event_type_t evtype)
 {
   event_t *evlist = gevent_list;

@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-/* All types of events. */
+/* All types of events. This order is important. */
 typedef enum
 {
   DO_EVENT = 0,
@@ -21,7 +21,7 @@ typedef enum
   BAT_EVENT,
   AO1_EVENT,
   AO2_EVENT,
-  COUNTER1_EVENT, /* On Counter increment event */
+  COUNTER1_EVENT,
   COUNTER2_EVENT,
   COUNTER3_EVENT,
   COUNTER4_EVENT,
@@ -29,7 +29,7 @@ typedef enum
   COUNTER6_EVENT,
   COUNTER7_EVENT,
   COUNTER8_EVENT,
-  EXT0_EVENT,    /* On Change of the frame */
+  EXT0_EVENT,
   EXT1_EVENT,
   EXT2_EVENT,
   EXT3_EVENT,
