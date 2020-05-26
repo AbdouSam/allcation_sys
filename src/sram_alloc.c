@@ -1,13 +1,22 @@
 /**
-  * @file  : sram_alloc.c
-  * @brief : Implimentation of an allocation system for External SRAM
-  * @note  : this module is not intended for professional use, it is intended as an 
+  * @file  sram_alloc.c
+  * @brief Implimentation of an allocation system for External SRAM
+  * @note  this module is not intended for professional use, it is intended as an 
   *          educational tool to understand how file systems works.
   */
 
+/**
+ * @todo
+ * - Limitation is the blocks table is limited to 128 block addressing only.
+ *   We can make that more flexiblewe can increase the block size more thn 512
+ *   but this will create a problem, one entry in block table should be 4 byte
+ *   the index is 1 byte (256 max address)
+ * - Many routines needs a LOCK  or a mutex, no mecanism is applyed for now.
+ * - use queues for Writing Reading to SRAM instead of directly accessing the address
+ */
+
 #include "sram_alloc.h"
 #include "sram_drv.h"
-
 #include "debug.h"
 #include "config.h"
 
@@ -36,15 +45,7 @@
 #define ALLOC_BLOCK_TABLE_ADDR  (ALLOC_START_ADDR + 1 * BLOCK_SIZE) /* Block.1 */
 #define ALLOC_FILE_TABLE_ADDR   (ALLOC_START_ADDR + 2 * BLOCK_SIZE) /* Block.2 */
 
-/**
- * @todo :
- * @li Limitation is the blocks table is limited to 128 block addressing only.
- *   We can make that more flexiblewe can increase the block size more thn 512
- *   but this will create a problem, one entry in block table should be 4 byte
- *   the index is 1 byte (256 max address)
- *
- * @li Many routines needs a LOCK  or a mutex, no mecanism is applyed for now.
- */
+
 
 /**
  * @brief  a block entry, holds data about a block
@@ -63,10 +64,10 @@ typedef struct
   */
 typedef struct 
 {
-  uint8_t index; /* Id of the allocation space */
-  uint8_t start; /* Starting index */
-  uint8_t len;   /* nbr of blocks reserved */
-  uint8_t used;  /* Is this entry used or not. */
+  uint8_t index; /**< Id of the allocation space */
+  uint8_t start; /**< Starting index */
+  uint8_t len;   /**< nbr of blocks reserved */
+  uint8_t used;  /**< Is this entry used or not. */
 }alloc_t;
 
 /**
@@ -75,27 +76,38 @@ typedef struct
   */
 typedef struct
 {
-  uint32_t  magicnbr;     /* Special nbre to check whether a system is mounted. */
-  uint32_t  bsize;        /* Size of one block in bytes */
-  uint32_t  blocknbr;     /* total block nbr in sys */
-  uint32_t  usedblocknbr; /* total used data blocks nbr in sys */
-  uint32_t  freeblocknbr; /* total free data blocks nbr in sys */
-  uint32_t  spblocknbr;   /* nbr blocks reserve for super block */
-  uint32_t  btblocknbr;   /* nbr block reserved for block table */
-  uint32_t  alblocknbr;   /* nbr block reserved for allocation table*/
-  uint32_t  datablocknbr; /* nbr block reserved for data */
-  uint32_t  spstrindex;   /* super block start index. */
-  uint32_t  btstrindex;   /* Block table start index. */
-  uint32_t  alstrindex;   /* alloc table start index. */
-  uint32_t  datastrindex; /* data start index. */
-  uint32_t  blentrynbr;   /* nbr of rows in Block table. */
-  uint32_t  alentrynbr;   /* nbr of rows in Alloc table. */
-  uint32_t  allocnbr;     /* nbr of allocations made */
+  uint32_t  magicnbr;     /**< Special nbre to check whether a system is mounted. */
+  uint32_t  bsize;        /**< Size of one block in bytes */
+  uint32_t  blocknbr;     /**< total block nbr in sys */
+  uint32_t  usedblocknbr; /**< total used data blocks nbr in sys */
+  uint32_t  freeblocknbr; /**< total free data blocks nbr in sys */
+  uint32_t  spblocknbr;   /**< nbr blocks reserve for super block */
+  uint32_t  btblocknbr;   /**< nbr block reserved for block table */
+  uint32_t  alblocknbr;   /**< nbr block reserved for allocation table*/
+  uint32_t  datablocknbr; /**< nbr block reserved for data */
+  uint32_t  spstrindex;   /**< super block start index. */
+  uint32_t  btstrindex;   /**< Block table start index. */
+  uint32_t  alstrindex;   /**< alloc table start index. */
+  uint32_t  datastrindex; /**< data start index. */
+  uint32_t  blentrynbr;   /**< nbr of rows in Block table. */
+  uint32_t  alentrynbr;   /**< nbr of rows in Alloc table. */
+  uint32_t  allocnbr;     /**< nbr of allocations made */
 }superblock_t;
 
+/**
+ * @brief global array index blocks
+ */
 static block_t gblock_table[BLOCK_TABLE_ROW_NBR];
+
+/** 
+ * @brief global array alloc blocks
+ */
 static alloc_t galloc_table[ALLOC_TABLE_ROW_NBR];
-static superblock_t gsuper_block;
+
+/**
+ *@brief the super block for sram mounting
+ */
+static superblock_t gsuper_block; 
 static uint8_t local_buffer[BLOCK_SIZE];
 
 #ifdef TEST
@@ -138,12 +150,12 @@ static void sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bo
 #ifndef TEST
 
 /** 
- * @brief : low level writing consuctive memory blocks.
+ * @brief  low level writing consuctive memory blocks.
  *
- * @param buffer : pointer to data to operate on.
- * @param blockstr: starting block of reading or writing data
- * @param blocknbr : nbr of consuctive blocks to write or read
- * @param write : 1 write 0 read.
+ * @param buffer  pointer to data to operate on.
+ * @param blockstr starting block of reading or writing data
+ * @param blocknbr  nbr of consuctive blocks to write or read
+ * @param write  1 write 0 read.
 
  * @return None.
  */
@@ -289,7 +301,7 @@ static void sync_iblocks_sram(superblock_t *superblock,
 /**
  * @brief test if an allocation index is already used
  * 
- * @param alloc_id : allocation index
+ * @param alloc_id  allocation index
  *
  * @return 0 (ALLOC_OK), or a negative error code.
  */
@@ -308,15 +320,15 @@ static int isallocidvalid(int alloc_id)
 }
 
 /**
- * @brief: write or read to the allocation space a buffer of length len
+ * @brief write or read to the allocation space a buffer of length len
  *
- * @param alloc_id : index of allocation
- * @param pos : byte offset of the allocation where to start operating on data
- * @param buffer : pointer to a data structure, array or single data.
- * @param len : length in bytes of the data operated on.
- * @param write : 1 Write, 0 Read
+ * @param alloc_id  index of allocation
+ * @param pos  byte offset of the allocation where to start operating on data
+ * @param buffer  pointer to a data structure, array or single data.
+ * @param len  length in bytes of the data operated on.
+ * @param write  1 Write, 0 Read
  * 
- * @return: 0 (ALLOC_OK) or negativ number with error code. see error enum
+ * @return 0 (ALLOC_OK) or negativ number with error code. see error enum
  */
 static int sram_alloc_op(int alloc_id, uint32_t pos, void *buffer, uint32_t len, bool write)
 {

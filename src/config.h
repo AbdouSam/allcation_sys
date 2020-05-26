@@ -1,3 +1,8 @@
+/**
+  * @file  : config.h
+  * @brief : Common defines
+  */
+
 #ifndef CONFIG_H
 #define CONFIG_H
 
