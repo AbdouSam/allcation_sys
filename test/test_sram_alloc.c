@@ -16,7 +16,6 @@ void tearDown(void)
 {
 }
 
-#if 0
 void test_sram_alloc_MallocFree(void)
 {
   int id0 = 0;
@@ -100,9 +99,6 @@ void test_sram_alloc_MallocFree(void)
   //dump_sram(1);
 }
 
-#endif
-
-#if 0
 void test_sram_alloc_SRAMReadWrite(void)
 {
   uint32_t addr =  0;
@@ -111,7 +107,7 @@ void test_sram_alloc_SRAMReadWrite(void)
 
   sram_drvwrite(addr, data);
 
-  dump_sram(1);
+  // dump_sram(1);
 
   sram_drvread(addr, &rdata);
   dbg_msg("Read data : %08X\n", rdata);
@@ -119,14 +115,11 @@ void test_sram_alloc_SRAMReadWrite(void)
   data = 0xDE07C0DE;
   rdata = 0x00000000;
   sram_drvwrite(addr + 4, data);
-  dump_sram(2);
+  // dump_sram(2);
 
   sram_drvread(addr + 4, &rdata);
   dbg_msg("Read data : %08X\n", rdata);
 }
-#endif
-
-#if 0
 
 #define LEN (1)
 void test_sram_alloc_WriteReadmultipleBlocks(void)
@@ -186,9 +179,7 @@ void test_sram_alloc_WriteReadmultipleBlocks(void)
 
   TEST_ASSERT_EQUAL_UINT8_ARRAY(wbuffer, rbuffer, len);
 }
-#endif
 
-#if 1
 typedef struct
 {
   uint8_t id;
@@ -260,4 +251,3 @@ void test_sram_alloc_WriteReadStructures(void)
   TEST_ASSERT_EQUAL_UINT16(wbuffer.others, rbuffer.others);
   TEST_ASSERT_EQUAL_UINT64(wbuffer.longer, rbuffer.longer);
 }
-#endif
