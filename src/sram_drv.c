@@ -1,3 +1,9 @@
+/**
+  * @file  : sram_drv.c
+  * @brief : a stub file to simulate an SRAM in host computer used when TEST is defined
+  * 
+  * @note the sram is addressed by 32bit address
+  */
 #include "sram_drv.h"
 #include "debug.h"
 #include "config.h"
@@ -21,7 +27,9 @@ void init_sram(void)
   dbg_msg("Init Drv Sram.\n");
 }
 
-/* Dump the block data. */
+/** 
+ * Dump the block data. 
+ */
 void dump_sram(int blocknbr)
 {
   int i;
@@ -47,7 +55,9 @@ static bool isaddr_valid(uint32_t addr)
   return !(addr%4 > 0);
 }
 
-/* Simulate Writing in the sram */
+/**
+ * Simulate Writing in the sram
+ */
 int sram_drvwrite(uint32_t addr, uint32_t data)
 {
 
@@ -66,7 +76,9 @@ int sram_drvwrite(uint32_t addr, uint32_t data)
   }
 }
 
-/* Simulate Reading from the sram */
+/**
+ * Simulate Reading from the sram 
+ */
 int sram_drvread(uint32_t addr, uint32_t *data)
 {
   uint32_t ldata;

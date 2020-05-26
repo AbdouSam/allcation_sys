@@ -1,3 +1,10 @@
+/**
+  * @file  : sram_alloc.c
+  * @brief : Implimentation of an allocation system for External SRAM
+  * @note  : this module is not intended for professional use, it is intended as an 
+  *          educational tool to understand how file systems works.
+  */
+
 #include "sram_alloc.h"
 #include "sram_drv.h"
 
@@ -11,7 +18,7 @@
 #define ALLOC_TABLE_ROW_NBR   (BLOCK_SIZE / ALLOC_DATA_STRUCT_LEN)
 
 /* Size in byte / 4 to get 32bit addresses
- * with 512/ 4 = 128 Address to hold data about 128 allocation spaces. */
+   with 512/ 4 = 128 Address to hold data about 128 allocation spaces. */
 
 #define SUPER_BLKNBR          1    
 #define BLOCK_TABLE_BLKNBR    1     
@@ -30,25 +37,30 @@
 #define ALLOC_FILE_TABLE_ADDR   (ALLOC_START_ADDR + 2 * BLOCK_SIZE) /* Block.2 */
 
 /**
- * TODO :
- * - Limitation is the blocks table is limited to 128 block addressing only.
+ * @todo :
+ * @li Limitation is the blocks table is limited to 128 block addressing only.
  *   We can make that more flexiblewe can increase the block size more thn 512
  *   but this will create a problem, one entry in block table should be 4 byte
  *   the index is 1 byte (256 max address)
  *
- * - Many routines needs a LOCK  or a mutex, no mecanism is applyed for now.
+ * @li Many routines needs a LOCK  or a mutex, no mecanism is applyed for now.
  */
 
-/* a block entry, holds data about a block */
+/**
+ * @brief  a block entry, holds data about a block
+ * @warning It is essential for this struct to not exceed 32bit
+ */
 typedef struct 
 {
-  uint8_t index; /* 0-255 indexing */
-  uint8_t busy;  /* 1: busy, 0: free*/
-  int16_t next;  /* Next index reserved (-1 of non) Warning (-127, 128) range. */
+  uint8_t index; /**< 0-255 indexing */
+  uint8_t busy;  /**< 1: busy, 0: free*/
+  int16_t next;  /**< Next index reserved (-1 of non) Warning (-127, 128) range. */
 }block_t;
-/* /!\ It is essential for this struct to not exceed 32bit */
  
- /* allocation entry, hold data about an allocation */
+ /**
+  * @brief allocation entry, hold data about an allocation
+  * @warning It is essential for this struct to not exceed 32bit
+  */
 typedef struct 
 {
   uint8_t index; /* Id of the allocation space */
@@ -56,10 +68,11 @@ typedef struct
   uint8_t len;   /* nbr of blocks reserved */
   uint8_t used;  /* Is this entry used or not. */
 }alloc_t;
-/* /!\ It is essential for this struct to not exceed 32bit */
 
-
-/* Super block hold data about the allocation system. */
+/**
+  * @brief Super block hold data about the allocation system.
+  * @warning It is essential for this struct to not exceed BLOCK_SIZE (512byte)
+  */
 typedef struct
 {
   uint32_t  magicnbr;     /* Special nbre to check whether a system is mounted. */
@@ -79,7 +92,6 @@ typedef struct
   uint32_t  alentrynbr;   /* nbr of rows in Alloc table. */
   uint32_t  allocnbr;     /* nbr of allocations made */
 }superblock_t;
-/* /!\ It is essential for this struct to not exceed BLOCK_SIZE (512byte) */
 
 static block_t gblock_table[BLOCK_TABLE_ROW_NBR];
 static alloc_t galloc_table[ALLOC_TABLE_ROW_NBR];
@@ -133,7 +145,7 @@ static void sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bo
  * @param blocknbr : nbr of consuctive blocks to write or read
  * @param write : 1 write 0 read.
 
- * @return no ret.
+ * @return None.
  */
 static void sram_onblock_op(void *buffer, uint8_t blockstr, uint8_t blocknbr, bool write)
 {
@@ -217,6 +229,9 @@ static void init_tables(void)
 
 /**
  * @brief Add one entry to the super block and update the size
+ *
+ * @param superblock The superblock
+ * @param blknbr the block numbers to update
  */
 static void update_alloc_superblock(superblock_t *superblock, uint8_t blkbnr)
 {
@@ -227,6 +242,8 @@ static void update_alloc_superblock(superblock_t *superblock, uint8_t blkbnr)
 
 /**
  * @brief Remove one entry from the super block and update the size
+ * @param superblock The superblock
+ * @param blknbr the block numbers to remove
  */
 static void update_free_superblock(superblock_t *superblock, uint8_t blkbnr)
 {
@@ -274,7 +291,7 @@ static void sync_iblocks_sram(superblock_t *superblock,
  * 
  * @param alloc_id : allocation index
  *
- * @ret return 0 (ALLOC_OK), or a negative error code.
+ * @return 0 (ALLOC_OK), or a negative error code.
  */
 static int isallocidvalid(int alloc_id)
 {
@@ -405,6 +422,9 @@ static int sram_alloc_op(int alloc_id, uint32_t pos, void *buffer, uint32_t len,
   return ALLOC_OK;
 }
 
+/**
+ * @brief Mount the allocation system in the SRAM
+ */
 int mount_allocsystem(void)
 {
   /* Initialize block table. */
@@ -452,8 +472,6 @@ int mount_allocsystem(void)
 
   return ALLOC_OK;
 }
-
-
 
 int sram_block_malloc(int alloc_id, size_t bytenbr)
 {

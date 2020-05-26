@@ -1,3 +1,7 @@
+/**
+  * @file  : sram_alloc.h
+  * @brief : contains functions prototypes, error enumeration
+  */
 #ifndef SRAM_ALLOC_H
 #define SRAM_ALLOC_H
 

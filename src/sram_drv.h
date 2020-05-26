@@ -1,3 +1,7 @@
+/**
+  * @file  : sram_drv.h
+  * @brief : header of sram_drv.c
+  */
 #ifndef SRAM_DRV_H
 #define SRAM_DRV_H
 
