@@ -1,0 +1,28 @@
+var searchData=
+[
+  ['spblocknbr',['spblocknbr',['../structsuperblock__t.html#ae2ba247e93261dc37cfcd864d147d49e',1,'superblock_t']]],
+  ['spstrindex',['spstrindex',['../structsuperblock__t.html#a5f48d70b8c5a4aac5185bd648af3d5c4',1,'superblock_t']]],
+  ['sram_5falloc_2ec',['sram_alloc.c',['../sram__alloc_8c.html',1,'']]],
+  ['sram_5falloc_2eh',['sram_alloc.h',['../sram__alloc_8h.html',1,'']]],
+  ['sram_5falloc_5fread',['sram_alloc_read',['../sram__alloc_8c.html#a428ead8031fa724c77a20e3e8dc28298',1,'sram_alloc_read(int alloc_id, uint32_t pos, void *buffer, uint32_t len):&#160;sram_alloc.c'],['../sram__alloc_8h.html#a428ead8031fa724c77a20e3e8dc28298',1,'sram_alloc_read(int alloc_id, uint32_t pos, void *buffer, uint32_t len):&#160;sram_alloc.c']]],
+  ['sram_5falloc_5fwrite',['sram_alloc_write',['../sram__alloc_8c.html#a8877e2909071ffb471e226814a83cb24',1,'sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len):&#160;sram_alloc.c'],['../sram__alloc_8h.html#a8877e2909071ffb471e226814a83cb24',1,'sram_alloc_write(int alloc_id, uint32_t pos, void *buffer, uint32_t len):&#160;sram_alloc.c']]],
+  ['sram_5fblock_5ffree',['sram_block_free',['../sram__alloc_8c.html#a791e69d09946654edcfca3263673bfb8',1,'sram_block_free(int alloc_id):&#160;sram_alloc.c'],['../sram__alloc_8h.html#a791e69d09946654edcfca3263673bfb8',1,'sram_block_free(int alloc_id):&#160;sram_alloc.c']]],
+  ['sram_5fblock_5fmalloc',['sram_block_malloc',['../sram__alloc_8c.html#a0c51baeca3ba073c4dbafecd43f42797',1,'sram_block_malloc(int alloc_id, size_t bytenbr):&#160;sram_alloc.c'],['../sram__alloc_8h.html#a0c51baeca3ba073c4dbafecd43f42797',1,'sram_block_malloc(int alloc_id, size_t bytenbr):&#160;sram_alloc.c']]],
+  ['sram_5fdrv_2ec',['sram_drv.c',['../sram__drv_8c.html',1,'']]],
+  ['sram_5fdrv_2eh',['sram_drv.h',['../sram__drv_8h.html',1,'']]],
+  ['sram_5fdrvread',['sram_drvread',['../sram__drv_8c.html#a267a7d0c974b1209c999d13d421c111a',1,'sram_drvread(uint32_t addr, uint32_t *data):&#160;sram_drv.c'],['../sram__drv_8h.html#a267a7d0c974b1209c999d13d421c111a',1,'sram_drvread(uint32_t addr, uint32_t *data):&#160;sram_drv.c']]],
+  ['sram_5fdrvwrite',['sram_drvwrite',['../sram__drv_8c.html#a373ed3a8b235d15187031ed95a4561bd',1,'sram_drvwrite(uint32_t addr, uint32_t data):&#160;sram_drv.c'],['../sram__drv_8h.html#a373ed3a8b235d15187031ed95a4561bd',1,'sram_drvwrite(uint32_t addr, uint32_t data):&#160;sram_drv.c']]],
+  ['sram_5fgetalloc_5fsize',['sram_getalloc_size',['../sram__alloc_8c.html#a7b8054e375eb2e93e0554db53b635f56',1,'sram_getalloc_size(int alloc_id):&#160;sram_alloc.c'],['../sram__alloc_8h.html#a7b8054e375eb2e93e0554db53b635f56',1,'sram_getalloc_size(int alloc_id):&#160;sram_alloc.c']]],
+  ['sram_5fgetalloc_5fvalid',['sram_getalloc_valid',['../sram__alloc_8c.html#a8cecd08112b51196269237449a28e7c0',1,'sram_getalloc_valid(int alloc_id):&#160;sram_alloc.c'],['../sram__alloc_8h.html#a8cecd08112b51196269237449a28e7c0',1,'sram_getalloc_valid(int alloc_id):&#160;sram_alloc.c']]],
+  ['sram_5fgetblocksize',['sram_getblocksize',['../sram__alloc_8c.html#a5dad2ba433ff1db9fec5daae47ab1126',1,'sram_getblocksize(void):&#160;sram_alloc.c'],['../sram__alloc_8h.html#a5dad2ba433ff1db9fec5daae47ab1126',1,'sram_getblocksize(void):&#160;sram_alloc.c']]],
+  ['sram_5fgetentrynbr',['sram_getentrynbr',['../sram__alloc_8c.html#aba89e3721b96240c3546c0966c3cbdb7',1,'sram_getentrynbr(void):&#160;sram_alloc.c'],['../sram__alloc_8h.html#aba89e3721b96240c3546c0966c3cbdb7',1,'sram_getentrynbr(void):&#160;sram_alloc.c']]],
+  ['sram_5fgetfreeblocks',['sram_getfreeblocks',['../sram__alloc_8c.html#a6d26792c5eda97914b12d1724c7d9a22',1,'sram_getfreeblocks(void):&#160;sram_alloc.c'],['../sram__alloc_8h.html#a6d26792c5eda97914b12d1724c7d9a22',1,'sram_getfreeblocks(void):&#160;sram_alloc.c']]],
+  ['sram_5fgettotalblocks',['sram_gettotalblocks',['../sram__alloc_8c.html#a14050522b6e15f9211c8b5bb54358ef3',1,'sram_gettotalblocks(void):&#160;sram_alloc.c'],['../sram__alloc_8h.html#a14050522b6e15f9211c8b5bb54358ef3',1,'sram_gettotalblocks(void):&#160;sram_alloc.c']]],
+  ['sram_5fgetusedblocks',['sram_getusedblocks',['../sram__alloc_8c.html#a1aa47f7749d79118624566cad44b1027',1,'sram_getusedblocks(void):&#160;sram_alloc.c'],['../sram__alloc_8h.html#a1aa47f7749d79118624566cad44b1027',1,'sram_getusedblocks(void):&#160;sram_alloc.c']]],
+  ['sram_5fsize',['SRAM_SIZE',['../config_8h.html#a10a9c742edabf5e945a1c509b7e1451e',1,'config.h']]],
+  ['sram_5ft',['sram_t',['../structsram__t.html',1,'']]],
+  ['start',['start',['../structalloc__t.html#a4d56178fb11e2e6d1a6cf1c11cc6bf17',1,'alloc_t']]],
+  ['super_5fblknbr',['SUPER_BLKNBR',['../sram__alloc_8c.html#aac961f1bd417748549431c17d95de99c',1,'sram_alloc.c']]],
+  ['super_5fstr_5findx',['SUPER_STR_INDX',['../sram__alloc_8c.html#a0192668a34800d37974ac4bda8a0720b',1,'sram_alloc.c']]],
+  ['superblock_5ft',['superblock_t',['../structsuperblock__t.html',1,'']]]
+];

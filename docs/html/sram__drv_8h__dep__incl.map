@@ -1,0 +1,4 @@
+<map id="src/sram_drv.h" name="src/sram_drv.h">
+<area shape="rect" id="node2" href="$sram__alloc_8c.html" title="Implimentation of an allocation system for External SRAM. " alt="" coords="5,80,124,107"/>
+<area shape="rect" id="node3" href="$sram__drv_8c.html" title=": a stub file to simulate an SRAM in host computer used when TEST is defined " alt="" coords="149,80,258,107"/>
+</map>

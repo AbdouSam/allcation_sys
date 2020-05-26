@@ -1,0 +1,6 @@
+<map id="src/sram_alloc.c" name="src/sram_alloc.c">
+<area shape="rect" id="node2" href="$sram__alloc_8h.html" title="contains functions prototypes, error enumeration " alt="" coords="115,80,211,107"/>
+<area shape="rect" id="node8" href="$sram__drv_8h.html" title=": header of sram_drv.c " alt="" coords="235,80,322,107"/>
+<area shape="rect" id="node9" href="$debug_8h.html" title=": debug messages, printf in case of test " alt="" coords="346,80,414,107"/>
+<area shape="rect" id="node10" href="$config_8h.html" title=": Common defines " alt="" coords="438,80,506,107"/>
+</map>
